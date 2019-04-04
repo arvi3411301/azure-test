@@ -6,14 +6,39 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'Ubuntu-16.04'
+resources:
+  containers:
+    - container: server_builder
+      image: face11301/graphql-engine-server-builder:20190404
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+jobs:
+  - job: build_server
+    pool:
+      vmImage: 'ubuntu-16.04'
+    container: server_builder
+    steps:
+      - checkout: self
+        clean: true
+      - bash: |
+          mkdir -p $(Build.ArtifactStagingDirectory)/server_output
+          echo "# azure-test" >> $(Build.ArtifactStagingDirectory)/server_output/README.md
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.ArtifactStagingDirectory)/server_output
+          artifactName: serverOutput
+  - job: pytest
+    pool:
+      vmImage: 'ubuntu-16.04'
+    container: server_builder
+    dependsOn:
+      - build_server
+    steps:
+      - task: DownloadPipelineArtifact@0
+        displayName: Downloading serverOutput artifact
+        inputs:
+          artifactName: serverOutput
+          targetPath: $(Build.ArtifactStagingDirectory)/server_output
+      - bash: |
+          ls -la $(Build.ArtifactStagingDirectory)
+          ls -la $(Build.ArtifactStagingDirectory)/serverOutput
+          ls -la $(Build.ArtifactStagingDirectory)/server_output
